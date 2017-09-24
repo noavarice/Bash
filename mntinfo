@@ -1,10 +1,24 @@
 #! /bin/bash
 
+usage="mntinfo [-h]
+Prints information about types of file systems presented at current machine with its mount points"
+
+if [[ "$#" -gt 1 ]];  then
+    echo "Illegal parameter count"
+    echo "$usage"
+    exit 1
+elif [[ "$1" == "-h" ]]; then
+    echo "$usage"
+    exit 0
+fi
+
 MOUNT_POINT_FIELD_INDEX=2
 FS_TYPE_FIELD_INDEX=3
-fstab_info="cat /etc/fstab | grep -iP '^[/]?\w+' | tr -s ' '"
+fstab_info="cat /etc/fstab | grep -iP '^[^#]' | tr -s ' '"
+# массив, по сути представляющий пары "Тип ФС - кол-во разделов с таким типом"
 fs_types_and_count=($(eval $fstab_info | cut -d ' ' -f${FS_TYPE_FIELD_INDEX} | sort -ir | uniq -c))
 fs_distinct_types_count=$((${#fs_types_and_count[*]} / 2))
+# массив, по сути представляющий пары "Тип ФС - точки монтирования"
 fs_type_to_mount_point=($(eval $fstab_info | cut -d ' ' -f${MOUNT_POINT_FIELD_INDEX},${FS_TYPE_FIELD_INDEX}))
 pairs_count=$((${#fs_type_to_mount_point[*]} / 2))
 # для каждого типа ФС выводим, собственно, тип и количество устройств с таким типом
@@ -13,7 +27,7 @@ do
     fs_type=${fs_types_and_count[((i * 2 + 1))]}
     count=${fs_types_and_count[((i * 2))]}
     printf "Type: %s, %d mount point(s)" $fs_type $count
-    # для устройств с типом ФС ext* выводим еще и точки монтирования
+    # для устройств с типом ФС ext* и reiser* выводим еще и точки монтирования
     declare -a mount_points
     if [[ $fs_type =~ ^(ext|reiser) ]]; then
         for ((j = 0; j < pairs_count; j++))
@@ -22,7 +36,9 @@ do
                 mount_points+=(${fs_type_to_mount_point[((j * 2))]})
             fi
         done
-        echo " ($(sed s/..$// <<< $(printf "\"%s\", " ${mount_points[@]})))"
+        IFS=$'\n'
+        echo " ($(sed s/..$// <<< $(printf "\"%s\", " $(sort <<< "${mount_points[*]}"))))"
+        unset IFS
     else
         echo
     fi
