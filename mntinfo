@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash -x
 
 usage="mntinfo [-h]
 Prints information about types of file systems presented at current machine with its mount points"
